@@ -14,7 +14,7 @@ func main() {
 	// Initialize the database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		dbURL = "postgres://username:password@localhost/real_time_db?sslmode=disable"
+		dbURL = "postgres://username:password@localhost/real_time_db?sslmode=disable" // Update with your actual DB details
 	}
 	if err := database.InitDB(dbURL); err != nil {
 		log.Fatalf("Failed to connect to the database: %v", err)

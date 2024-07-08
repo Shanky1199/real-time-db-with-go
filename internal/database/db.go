@@ -2,8 +2,8 @@ package database
 
 import (
 	"database/sql"
-	"errors"
 	"log"
+	"time"
 
 	_ "github.com/lib/pq"
 )
@@ -16,6 +16,12 @@ func InitDB(dataSourceName string) error {
 	if err != nil {
 		return err
 	}
+
+	// Set connection pooling configuration
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
 	if err = db.Ping(); err != nil {
 		return err
 	}
@@ -28,17 +34,12 @@ func GetDB() *sql.DB {
 }
 
 func InsertItem(item map[string]interface{}) error {
-	// Example implementation
 	query := "INSERT INTO items (data) VALUES ($1)"
 	_, err := db.Exec(query, item)
 	return err
 }
 
 func GetItems() ([]map[string]interface{}, error) {
-	if db == nil {
-		return nil, errors.New("database connection is not initialized")
-	}
-
 	rows, err := db.Query("SELECT data FROM items")
 	if err != nil {
 		return nil, err
