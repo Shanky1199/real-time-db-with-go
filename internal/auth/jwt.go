@@ -8,14 +8,22 @@ import (
 
 var jwtKey = []byte("your_secret_key")
 
+type Claims struct {
+	Username string `json:"username"`
+	jwt.StandardClaims
+}
+
 func GenerateJWT(username string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &jwt.StandardClaims{
-		Subject:   username,
-		ExpiresAt: expirationTime.Unix(),
+	claims := &Claims{
+		Username: username,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(jwtKey)
+	return tokenString, err
 }
 
 func ValidateJWT(tokenStr string) (*jwt.StandardClaims, error) {

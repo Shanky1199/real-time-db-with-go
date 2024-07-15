@@ -3,13 +3,14 @@ package handlers
 import (
 	"log"
 	"net/http"
+	"real-time-database/internal/models"
 	"sync"
 
 	"github.com/gorilla/websocket"
 )
 
-// ClientsMap to manage connected clients
 var clients = make(map[*websocket.Conn]bool)
+var broadcast = make(chan models.Item)
 var clientsMutex sync.Mutex
 
 var upgrader = websocket.Upgrader{
@@ -24,7 +25,6 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	// Add the new connection to the clients map
 	clientsMutex.Lock()
 	clients[conn] = true
 	clientsMutex.Unlock()
@@ -41,22 +41,25 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 		log.Printf("Received: %s\n", msg)
-
-		// Broadcast the message to all connected clients
-		broadcastMessage(msg)
 	}
 }
 
-func broadcastMessage(message []byte) {
-	clientsMutex.Lock()
-	defer clientsMutex.Unlock()
-
-	for client := range clients {
-		err := client.WriteMessage(websocket.TextMessage, message)
-		if err != nil {
-			log.Printf("Error writing message: %v", err)
-			client.Close()
-			delete(clients, client)
+func broadcastMessage() {
+	for {
+		item := <-broadcast
+		clientsMutex.Lock()
+		for client := range clients {
+			err := client.WriteJSON(item)
+			if err != nil {
+				log.Printf("Error writing message: %v", err)
+				client.Close()
+				delete(clients, client)
+			}
 		}
+		clientsMutex.Unlock()
 	}
+}
+
+func init() {
+	go broadcastMessage()
 }
