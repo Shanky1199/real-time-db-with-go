@@ -1,8 +1,11 @@
 package handlers
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
+	"real-time-database/internal/cache"
+	"real-time-database/internal/database"
 	"real-time-database/internal/models"
 	"sync"
 
@@ -29,18 +32,25 @@ func HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	clients[conn] = true
 	clientsMutex.Unlock()
 
-	log.Println("WebSocket connection established")
-
 	for {
 		_, msg, err := conn.ReadMessage()
 		if err != nil {
-			log.Printf("Error reading message: %v", err)
 			clientsMutex.Lock()
 			delete(clients, conn)
 			clientsMutex.Unlock()
 			break
 		}
-		log.Printf("Received: %s\n", msg)
+
+		// Process message and update cache/database as needed
+		var item models.Item
+		if err := json.Unmarshal(msg, &item); err == nil {
+			if err := database.AddItem(item); err == nil {
+				// Notify all connected clients
+				broadcast <- item
+			} else {
+				log.Printf("Failed to add item: %v", err)
+			}
+		}
 	}
 }
 
@@ -60,6 +70,14 @@ func broadcastMessage() {
 	}
 }
 
-func init() {
+func StartWebSocketServer() {
+	http.HandleFunc("/ws", HandleWebSocket)
 	go broadcastMessage()
+	log.Fatal(http.ListenAndServe(":8080", nil))
+}
+
+func init() {
+	cache.InitCache()
+	database.InitDB()
+	StartWebSocketServer()
 }
